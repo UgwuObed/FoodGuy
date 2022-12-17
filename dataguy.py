@@ -1,10 +1,13 @@
 import spacy
 import re
 import requests
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
 from sklearn.model_selection import train_test_split
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
-from nltk.tokenize import word_tokenize
 from bs4 import BeautifulSoup
 from spacy.lang.en.stop_words import STOP_WORDS
 
@@ -41,6 +44,23 @@ def create_vocab_list(text):
     
     return vocab_list
 
+def one_hot_encode(text, vocab_index, max_length):
+    # Tokenize the text
+    tokens = nlp(text)
+    
+    # Initialize the one-hot encoded vector
+    one_hot = np.zeros(max_length, dtype=int)
+    
+    # Set the indices corresponding to the words in the text to 1
+    for token in tokens:
+        if token.text in vocab_index:
+            one_hot[vocab_index[token.text]] = 1
+        else:
+            # Use the default value for words that are not in the vocabulary index
+            one_hot[vocab_index[-1]] = 1
+    
+    return one_hot
+
 # Send a GET request to the webpage
 response = requests.get("https://www.businesslist.com.ng/category/restaurants/city:lagos")
 
@@ -49,7 +69,6 @@ html = response.text
 
 # Parse the HTML content of the webpage
 soup = BeautifulSoup(html, "html.parser")
-
 
 # Extract the names of the restaurants from the HTML
 restaurant_names = soup.find_all("h2")
@@ -66,65 +85,48 @@ tokenized_data = [nlp(text) for text in cleaned_data]
 # Initialize the WordNetLemmatizer
 lemmatizer = WordNetLemmatizer()
 
-def stem_text(text):
-    # Tokenize the text
-    tokens = word_tokenize(text)
+# Lemmatize the tokens
+lemmatized_data = [[lemmatizer.lemmatize(token.text) for token in doc] for doc in tokenized_data]
 
-    # Stem the tokens
-    stemmed_tokens = [lemmatizer.lemmatize(token) for token in tokens]
-
-    # Join the stemmed tokens back into a single string
-    stemmed_text = " ".join(stemmed_tokens)
-
-    return stemmed_text
-
-# Stem the cleaned data
-stemmed_data = [stem_text(text) for text in cleaned_data]
-
-# Create the vocabulary list
-vocab_list = []
-for text in stemmed_data:
-    voc
-
-# Initialize the TfidfVectorizer
-vectorizer = TfidfVectorizer()
-
-# Generate the TF-IDF vectors
-vectors = vectorizer.fit_transform(cleaned_data)
+# Create a vocabulary list
+vocab_list = create_vocab_list(lemmatized_data)
 
 # Create a vocabulary index
 vocab_index = {word: index for index, word in enumerate(vocab_list)}
 
-def one_hot_encode(text, vocab_index, max_length):
-    # Tokenize the text
-    tokens = nlp(text)
-    
-    # Initialize the one-hot encoded vector
-    one_hot = np.zeros(max_length, dtype=int)
-    
-    # Set the indices corresponding to the words in the text to 1
-    for token in tokens:
-        if token.text in vocab_index:
-            one_hot[vocab_index[token.text]] = 1
-    
-    return one_hot
+# Set a default value for words that are not in the vocabulary index
+vocab_index.setdefault(-1)
 
-# Set the maximum length of the one-hot encoded vectors
-max_length = len(vocab_index)
+# One-hot encode the data
+one_hot_data = [one_hot_encode(text, vocab_index, len(vocab_list)) for text in lemmatized_data]
 
-# One-hot encode the stemmed data
-one_hot_data = [one_hot_encode(text, vocab_index, max_length) for text in stemmed_data]
+# Get the maximum length of the one-hot encoded data
+max_length = max([len(doc) for doc in one_hot_data])
 
-X = cleaned_data  # input data
-y = labels  # labels or target values
+# Pad the one-hot encoded data
+padded_data = [np.pad(doc, (0, max_length - len(doc)), "constant") for doc in one_hot_data]
 
-# Split the dataset into a training set (70%) and a test set (30%)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+# Scale the data
+scaled_data = scale(padded_data)
 
-# Train the model on the training set
-model.fit(X_train, y_train)
+# Split the data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(scaled_data, labels, test_size=0.2)
 
-# Evaluate the model on the test set
-accuracy = model.score(X_test, y_test)
+# Initialize the TfidfVectorizer
+vectorizer = TfidfVectorizer()
 
+# Fit and transform the train data
+X_train_tfidf = vectorizer.fit_transform(X_train)
+
+# Transform the test data
+X_test_tfidf = vectorizer.transform(X_test)
+
+# Create a dataframe from the one-hot encoded data
+df = pd.DataFrame(one_hot_data)
+
+# Create a heatmap
+sns.heatmap(df.corr())
+
+# Show the plot
+plt.show()
 
