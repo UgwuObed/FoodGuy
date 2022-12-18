@@ -10,6 +10,7 @@ from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from bs4 import BeautifulSoup
 from spacy.lang.en.stop_words import STOP_WORDS
+from sklearn.svm import SVC
 
 # Load the language model
 nlp = spacy.load("en_core_web_sm")
@@ -112,6 +113,8 @@ scaled_data = scale(padded_data)
 # Split the data into train and test sets
 X_train, X_test, y_train, y_test = train_test_split(scaled_data, labels, test_size=0.2)
 
+
+
 # Initialize the TfidfVectorizer
 vectorizer = TfidfVectorizer()
 
@@ -129,4 +132,13 @@ sns.heatmap(df.corr())
 
 # Show the plot
 plt.show()
+
+# Initialize the SVC classifier
+clf = SVC()
+
+# Split the data into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# Train the model on the training data
+clf.fit(X_train, y_train)
 
